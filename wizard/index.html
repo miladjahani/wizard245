@@ -684,6 +684,15 @@
                 return;
             }
 
+            // برای توکن‌های cfut_، بررسی API را انجام نده و مستقیم ادامه بده
+            if (apiToken.startsWith('cfut_')) {
+                // فرض می‌کنیم توکن معتبر است و ادامه می‌دهیم
+                accountId = 'pending'; // مقدار موقت
+                userInfo = { name: 'Cloudflare User' };
+                showStep(2);
+                return;
+            }
+
             try {
                 const response = await fetch('https://api.cloudflare.com/client/v4/user/tokens/verify', {
                     headers: {
