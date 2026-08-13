@@ -673,7 +673,13 @@
             const tokenInput = document.getElementById('apiToken');
             apiToken = tokenInput.value.trim();
 
-            if (!apiToken || !apiToken.startsWith('eyJ')) {
+            if (!apiToken) {
+                alert('لطفاً یک API Token وارد کنید');
+                return;
+            }
+
+            // پذیرش توکن‌های با فرمت cfut_ و eyJ
+            if (!apiToken.startsWith('eyJ') && !apiToken.startsWith('cfut_')) {
                 alert('لطفاً یک API Token معتبر وارد کنید');
                 return;
             }
