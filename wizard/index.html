@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiladConfig Wizard - نصب خودکار Cloudflare Worker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-green: #00ff88;
+            --secondary-green: #00cc6a;
+            --dark-bg: #0a0a0f;
+            --card-bg: #12121a;
+            --input-bg: #1a1a25;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --error-red: #ff4757;
+            --success-green: #2ed573;
+            --glow-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--dark-bg) 0%, #1a1a2e 50%, #0f0f1a 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .wizard-container {
+            max-width: 700px;
+            width: 100%;
+            background: var(--card-bg);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), var(--glow-shadow);
+            border: 1px solid rgba(0, 255, 136, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .wizard-container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(0, 255, 136, 0.05) 0%, transparent 70%);
+            animation: pulse 4s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .logo {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, var(--primary-green), var(--secondary-green));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            box-shadow: var(--glow-shadow);
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .logo svg {
+            width: 60px;
+            height: 60px;
+            fill: white;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, var(--primary-green), #00d4aa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .step-indicator::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-50%);
+            z-index: -1;
+        }
+
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--input-bg);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            margin-bottom: 8px;
+        }
+
+        .step.active .step-number {
+            background: var(--primary-green);
+            border-color: var(--primary-green);
+            color: var(--dark-bg);
+            box-shadow: var(--glow-shadow);
+        }
+
+        .step.completed .step-number {
+            background: var(--success-green);
+            border-color: var(--success-green);
+            color: white;
+        }
+
+        .step-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            transition: color 0.3s ease;
+        }
+
+        .step.active .step-label {
+            color: var(--primary-green);
+            font-weight: 600;
+        }
+
+        .step-content {
+            display: none;
+            position: relative;
+            z-index: 1;
+        }
+
+        .step-content.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="email"],
+        select {
+            width: 100%;
+            padding: 16px 20px;
+            background: var(--input-bg);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: var(--primary-green);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
+        }
+
+        input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-green), var(--secondary-green));
+            color: var(--dark-bg);
+            box-shadow: var(--glow-shadow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            color: var(--text-secondary);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--text-primary);
+            color: var(--text-primary);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-green), var(--secondary-green));
+            border-radius: 3px;
+            transition: width 0.3s ease;
+            width: 0;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--input-bg);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+
+        .status-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .status-icon.pending {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
+        }
+
+        .status-icon.processing {
+            background: rgba(0, 255, 136, 0.2);
+            color: var(--primary-green);
+            animation: spin 1s linear infinite;
+        }
+
+        .status-icon.success {
+            background: rgba(46, 213, 115, 0.2);
+            color: var(--success-green);
+        }
+
+        .status-icon.error {
+            background: rgba(255, 71, 87, 0.2);
+            color: var(--error-red);
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .alert-info {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            color: var(--primary-green);
+        }
+
+        .alert-warning {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            color: #ffc107;
+        }
+
+        .token-link {
+            display: inline-block;
+            padding: 16px 24px;
+            background: rgba(0, 255, 136, 0.1);
+            border: 2px dashed var(--primary-green);
+            border-radius: 12px;
+            color: var(--primary-green);
+            text-decoration: none;
+            font-weight: 600;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+            word-break: break-all;
+        }
+
+        .token-link:hover {
+            background: rgba(0, 255, 136, 0.2);
+            transform: scale(1.02);
+        }
+
+        .result-box {
+            background: var(--input-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-label {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .result-value {
+            color: var(--primary-green);
+            font-weight: 600;
+            font-size: 13px;
+            direction: ltr;
+        }
+
+        .copy-btn {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid var(--primary-green);
+            color: var(--primary-green);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: var(--primary-green);
+            color: var(--dark-bg);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--primary-green);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="wizard-container">
+        <div class="header">
+            <div class="logo">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                </svg>
+            </div>
+            <h1>MiladConfig Wizard</h1>
+            <p class="subtitle">نصب خودکار Worker روی Cloudflare با یک کلیک</p>
+        </div>
+
+        <div class="step-indicator">
+            <div class="step active" data-step="1">
+                <div class="step-number">1</div>
+                <div class="step-label">دریافت توکن</div>
+            </div>
+            <div class="step" data-step="2">
+                <div class="step-number">2</div>
+                <div class="step-label">تنظیمات</div>
+            </div>
+            <div class="step" data-step="3">
+                <div class="step-number">3</div>
+                <div class="step-label">نصب</div>
+            </div>
+            <div class="step" data-step="4">
+                <div class="step-number">4</div>
+                <div class="step-label">نتیجه</div>
+            </div>
+        </div>
+
+        <!-- Step 1: Get Token -->
+        <div class="step-content active" id="step1">
+            <div class="alert alert-info">
+                🔐 برای شروع، باید یک API Token از Cloudflare دریافت کنید. این توکن دسترسی‌های لازم برای ایجاد Worker، D1 Database و KV Storage را خواهد داشت.
+            </div>
+            
+            <div class="form-group">
+                <label>لینک ساخت توکن با دسترسی‌های کامل:</label>
+                <a href="https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22workers_scripts%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22workers_kv_storage%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22page%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22dns%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22user_details%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22d1%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22d1%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22workers_subdomain%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_analytics%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22ssl_tls%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22zone_settings%22%2C%22type%22%3A%22edit%22%7D%5D&accountId=*&zoneId=all&name=MiladConfig-Deployer-Token" 
+                   target="_blank" 
+                   class="token-link"
+                   id="tokenLink">
+                    📋 کلیک برای ساخت توکن در Cloudflare
+                </a>
+            </div>
+
+            <div class="form-group">
+                <label for="apiToken">API Token را اینجا کپی کنید:</label>
+                <div class="input-wrapper">
+                    <input type="password" 
+                           id="apiToken" 
+                           placeholder="توکن را از صفحه Cloudflare کپی و اینجا وارد کنید..."
+                           autocomplete="off">
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="validateToken()">
+                <span>بررسی و ادامه</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Step 2: Configuration -->
+        <div class="step-content" id="step2">
+            <div class="alert alert-warning">
+                ⚙️ تنظیمات زیر را برای نصب MiladConfig وارد کنید
+            </div>
+
+            <div class="form-group">
+                <label for="workerName">نام Worker (اختیاری):</label>
+                <input type="text" 
+                       id="workerName" 
+                       placeholder="miladconfig-worker"
+                       value="miladconfig-worker">
+            </div>
+
+            <div class="form-group">
+                <label for="subdomain">ساب‌دامین مورد نظر:</label>
+                <input type="text" 
+                       id="subdomain" 
+                       placeholder="miladconfig">
+            </div>
+
+            <div class="form-group">
+                <label for="proxyUrl">URL پروکسی کراس (اختیاری):</label>
+                <input type="text" 
+                       id="proxyUrl" 
+                       placeholder="https://your-proxy.com"
+                       value="">
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="fixError1101" checked style="width: auto; margin-left: 8px;">
+                    فعال‌سازی رفع خطای 1101 Cloudflare
+                </label>
+            </div>
+
+            <div style="display: flex; gap: 15px;">
+                <button class="btn btn-secondary" onclick="prevStep(1)" style="flex: 1;">
+                    بازگشت
+                </button>
+                <button class="btn btn-primary" onclick="startDeployment()" style="flex: 2;">
+                    <span>شروع نصب خودکار</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 3: Deployment Progress -->
+        <div class="step-content" id="step3">
+            <h3 style="margin-bottom: 20px; text-align: center;">در حال نصب MiladConfig...</h3>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <div id="statusList">
+                <div class="status-item">
+                    <div class="status-icon pending" id="icon-validate">✓</div>
+                    <span id="text-validate">بررسی اعتبار توکن</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-icon pending" id="icon-account">✓</div>
+                    <span id="text-account">دریافت اطلاعات حساب</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-icon pending" id="icon-d1">✓</div>
+                    <span id="text-d1">ایجاد D1 Database</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-icon pending" id="icon-kv">✓</div>
+                    <span id="text-kv">ایجاد KV Storage</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-icon pending" id="icon-worker">✓</div>
+                    <span id="text-worker">آپلود و کانفیگ Worker</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-icon pending" id="icon-bindings">✓</div>
+                    <span id="text-bindings">اتصال Bindings</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-icon pending" id="icon-subdomain">✓</div>
+                    <span id="text-subdomain">تنظیم ساب‌دامین</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-icon pending" id="icon-complete">✓</div>
+                    <span id="text-complete">تکمیل نصب</span>
+                </div>
+            </div>
+
+            <div id="errorMessage" class="alert alert-warning hidden" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- Step 4: Result -->
+        <div class="step-content" id="step4">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <div class="logo" style="animation: none;">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                </div>
+                <h2 style="color: var(--success-green); margin-bottom: 10px;">نصب با موفقیت انجام شد!</h2>
+                <p style="color: var(--text-secondary);">MiladConfig روی Cloudflare Worker شما نصب شد</p>
+            </div>
+
+            <div class="result-box">
+                <div class="result-item">
+                    <span class="result-label">Worker URL:</span>
+                    <span class="result-value" id="resultUrl">https://miladconfig-worker.your-subdomain.workers.dev</span>
+                    <button class="copy-btn" onclick="copyToClipboard('resultUrl')">کپی</button>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">Database ID:</span>
+                    <span class="result-value" id="resultDb">xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</span>
+                    <button class="copy-btn" onclick="copyToClipboard('resultDb')">کپی</button>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">KV Namespace ID:</span>
+                    <span class="result-value" id="resultKv">xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</span>
+                    <button class="copy-btn" onclick="copyToClipboard('resultKv')">کپی</button>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                💡 برای دسترسی به پنل مدیریت، به آدرس Worker خود بروید و <code>/panel</code> را به انتهای URL اضافه کنید.
+            </div>
+
+            <button class="btn btn-primary" onclick="location.reload()">
+                <span>نصب مجدد</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        let apiToken = '';
+        let accountId = '';
+        let userInfo = {};
+        let dbId = '';
+        let kvId = '';
+        let workerName = 'miladconfig-worker';
+
+        function showStep(step) {
+            document.querySelectorAll('.step-content').forEach((el, i) => {
+                el.classList.toggle('active', i + 1 === step);
+            });
+            document.querySelectorAll('.step').forEach((el, i) => {
+                el.classList.toggle('active', i + 1 === step);
+                el.classList.toggle('completed', i + 1 < step);
+            });
+            currentStep = step;
+        }
+
+        function prevStep(step) {
+            showStep(step);
+        }
+
+        async function validateToken() {
+            const tokenInput = document.getElementById('apiToken');
+            apiToken = tokenInput.value.trim();
+
+            if (!apiToken || !apiToken.startsWith('eyJ')) {
+                alert('لطفاً یک API Token معتبر وارد کنید');
+                return;
+            }
+
+            try {
+                const response = await fetch('https://api.cloudflare.com/client/v4/user/tokens/verify', {
+                    headers: {
+                        'Authorization': `Bearer ${apiToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Get account info
+                    const accountResponse = await fetch('https://api.cloudflare.com/client/v4/accounts', {
+                        headers: {
+                            'Authorization': `Bearer ${apiToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    const accountData = await accountResponse.json();
+                    if (accountData.success && accountData.result.length > 0) {
+                        accountId = accountData.result[0].id;
+                        userInfo = accountData.result[0];
+                        showStep(2);
+                    } else {
+                        throw new Error('عدم دسترسی به حساب Cloudflare');
+                    }
+                } else {
+                    throw new Error(data.errors?.[0]?.message || 'توکن نامعتبر است');
+                }
+            } catch (error) {
+                alert('خطا در بررسی توکن: ' + error.message);
+            }
+        }
+
+        async function startDeployment() {
+            showStep(3);
+            workerName = document.getElementById('workerName').value || 'miladconfig-worker';
+            const subdomain = document.getElementById('subdomain').value || 'miladconfig';
+            const proxyUrl = document.getElementById('proxyUrl').value;
+            const fixError1101 = document.getElementById('fixError1101').checked;
+
+            try {
+                await updateStatus('validate', 'processing');
+                await sleep(500);
+                await updateStatus('validate', 'success');
+
+                await updateStatus('account', 'processing');
+                await sleep(500);
+                await updateStatus('account', 'success');
+
+                await updateStatus('d1', 'processing');
+                dbId = await createD1Database(workerName + '-db');
+                await updateStatus('d1', 'success');
+
+                await updateStatus('kv', 'processing');
+                kvId = await createKVNamespace(workerName + '-kv');
+                await updateStatus('kv', 'success');
+
+                await updateStatus('worker', 'processing');
+                await uploadWorker(subdomain, proxyUrl, fixError1101);
+                await updateStatus('worker', 'success');
+
+                await updateStatus('bindings', 'processing');
+                await bindResources(dbId, kvId);
+                await updateStatus('bindings', 'success');
+
+                await updateStatus('subdomain', 'processing');
+                await configureSubdomain(subdomain);
+                await updateStatus('subdomain', 'success');
+
+                await updateStatus('complete', 'success');
+                await sleep(1000);
+
+                document.getElementById('resultUrl').textContent = `https://${workerName}.${subdomain}.workers.dev`;
+                document.getElementById('resultDb').textContent = dbId;
+                document.getElementById('resultKv').textContent = kvId;
+
+                showStep(4);
+            } catch (error) {
+                console.error(error);
+                const errorMsg = document.getElementById('errorMessage');
+                errorMsg.textContent = '❌ خطا: ' + error.message;
+                errorMsg.classList.remove('hidden');
+                
+                const failedStep = getFailedStep(error.message);
+                if (failedStep) {
+                    updateStatus(failedStep, 'error');
+                }
+            }
+        }
+
+        function getFailedStep(errorMsg) {
+            if (errorMsg.includes('D1')) return 'd1';
+            if (errorMsg.includes('KV')) return 'kv';
+            if (errorMsg.includes('Worker')) return 'worker';
+            if (errorMsg.includes('Binding')) return 'bindings';
+            if (errorMsg.includes('subdomain')) return 'subdomain';
+            return null;
+        }
+
+        async function updateStatus(stepId, status) {
+            const icon = document.getElementById(`icon-${stepId}`);
+            const text = document.getElementById(`text-${stepId}`);
+            
+            icon.className = `status-icon ${status}`;
+            
+            if (status === 'processing') {
+                icon.innerHTML = '⟳';
+                text.textContent = 'در حال پردازش...';
+            } else if (status === 'success') {
+                icon.innerHTML = '✓';
+                text.textContent = 'انجام شد';
+            } else if (status === 'error') {
+                icon.innerHTML = '✗';
+                text.textContent = 'خطا';
+            }
+
+            const progress = (Array.from(document.querySelectorAll('.status-icon')).indexOf(icon) + 1) / 8 * 100;
+            document.getElementById('progressFill').style.width = `${progress}%`;
+        }
+
+        async function createD1Database(name) {
+            const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/d1/database`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name })
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error('خطا در ایجاد D1 Database: ' + (data.errors?.[0]?.message || 'Unknown error'));
+            }
+            return data.result.uuid;
+        }
+
+        async function createKVNamespace(title) {
+            const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ title })
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error('خطا در ایجاد KV Namespace: ' + (data.errors?.[0]?.message || 'Unknown error'));
+            }
+            return data.result.id;
+        }
+
+        async function uploadWorker(subdomain, proxyUrl, fixError1101) {
+            // Fetch the Source.js and prepare it for deployment
+            const sourceResponse = await fetch('https://raw.githubusercontent.com/miladjahani/wizard234/main/Source.js');
+            if (!sourceResponse.ok) {
+                throw new Error('خطا در دریافت فایل Source.js');
+            }
+            
+            let sourceCode = await sourceResponse.text();
+            
+            // Replace all zeus references with mili
+            sourceCode = sourceCode.replace(/zeus/gi, 'mili')
+                                   .replace(/ZEUS/gi, 'MILI')
+                                   .replace(/Zeus/gi, 'Mili');
+            
+            // Add cross proxy if provided
+            if (proxyUrl) {
+                sourceCode = sourceCode.replace(
+                    'const GLOBAL_TRAFFIC_CACHE = new Map();',
+                    `const CROSS_PROXY_URL = '${proxyUrl}';\nconst GLOBAL_TRAFFIC_CACHE = new Map();`
+                );
+            }
+
+            // Add error 1101 fix if enabled
+            if (fixError1101) {
+                const error1101Fix = `
+// Error 1101 Fix
+function handle1101Error(request) {
+    const url = new URL(request.url);
+    return new Response(null, {
+        status: 302,
+        headers: {
+            'Location': url.origin + url.pathname,
+            'CF-Cache-Status': 'BYPASS'
+        }
+    });
+}`;
+                sourceCode = error1101Fix + '\n' + sourceCode;
+            }
+
+            const formData = new FormData();
+            formData.append('main_module', new Blob([sourceCode], { type: 'application/javascript+module' }), 'index.js');
+
+            const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/${workerName}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${apiToken}`
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error('خطا در آپلود Worker: ' + (data.errors?.[0]?.message || 'Unknown error'));
+            }
+        }
+
+        async function bindResources(dbId, kvId) {
+            const bindings = [
+                {
+                    type: 'd1',
+                    name: 'DB',
+                    id: dbId
+                },
+                {
+                    type: 'kv_namespace',
+                    name: 'KV',
+                    namespace_id: kvId
+                }
+            ];
+
+            const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/scripts/${workerName}/bindings`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${apiToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(bindings)
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error('خطا در اتصال Resources: ' + (data.errors?.[0]?.message || 'Unknown error'));
+            }
+        }
+
+        async function configureSubdomain(subdomain) {
+            // Get current subdomain
+            const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/subdomain`, {
+                headers: {
+                    'Authorization': `Bearer ${apiToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+            
+            if (!data.success) {
+                // Set subdomain if not exists
+                const setResponse = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/subdomain`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ subdomain })
+                });
+
+                const setData = await setResponse.json();
+                if (!setData.success) {
+                    throw new Error('خطا در تنظیم ساب‌دامین: ' + (setData.errors?.[0]?.message || 'Unknown error'));
+                }
+            }
+        }
+
+        function copyToClipboard(elementId) {
+            const text = document.getElementById(elementId).textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('کپی شد!');
+            }).catch(err => {
+                console.error('خطا در کپی:', err);
+            });
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+    </script>
+</body>
+</html>
